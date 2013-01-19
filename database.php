@@ -33,7 +33,7 @@ class guws_database{
     //   array ; An associative array of received actions for this POI.Otherwise,
     //   return an empty array. 
     // 
-    function getPoiActions($db , $poi) {
+    private function getPoiActions($poi) {
         // Define an empty $actionArray array. 
         $actionArray = array();
 
@@ -42,7 +42,7 @@ class guws_database{
         // to. 
         // The SQL statement returns actions which have the same poiID as the id of
         // the POI($poiID).
-        $sql_actions = $db->prepare(' 
+        $sql_actions = $this->db->prepare(' 
             SELECT label, 
                     uri, 
                     contentType,
@@ -92,7 +92,7 @@ class guws_database{
     // Returns:
     //   array ; An array of received POIs.
     //
-    function getHotspots( $db, $value ) {
+    public function getHotspots( $db, $value ) {
         // Define an empty $hotspots array.
         $hotspots = array();
         /* Create a SQL query to retrieve POIs which meet the criterion of filter settings returned from GetPOI request. 
@@ -136,7 +136,7 @@ class guws_database{
                         WHERE poiType = "geo"
                         ';
 
-        if ( isset( $value['SEARCHBOX'] ) )     { $sql_string .= ' AND title REGEXP :search'; }
+        if ( isset( $value['SEARCHBOX'] ) ) { $sql_string .= ' AND title REGEXP :search'; }
 
         if ( isset( $value['CHECKBOXLIST'] ) and ($value['CHECKBOXLIST'] != '') ) {
             $sql_string .= ' AND (';
@@ -180,6 +180,7 @@ class guws_database{
 
         // Use PDO::execute() to execute the prepared statement $sql. 
         $sql->execute();
+        
         // Iterator for the response array.
         $i = 0; 
         // Use fetchAll to return an array containing all of the remaining rows in
@@ -194,95 +195,37 @@ class guws_database{
 
             // Put each POI information into $hotspots array.
             foreach ( $rawPois as $rawPoi ) {
-            $poi = array();
-            $poi['id'] = $rawPoi['id'];
-            $poi['imageURL'] = $rawPoi['imageURL'];
-            // Get anchor object information
-            $poi['anchor']['geolocation']['lat'] = changetoFloat($rawPoi['lat']);
-            $poi['anchor']['geolocation']['lon'] = changetoFloat($rawPoi['lon']);
-            // get text object information
-            $poi['text']['title'] = $rawPoi['title'];
-            $poi['text']['description'] = $rawPoi['description'];
-            $poi['text']['footnote'] = $rawPoi['footnote'];
-            //User function getPOiActions() to return an array of actions associated
-            //with the current POI
-            $poi['actions'] = getPoiActions($db, $rawPoi);
-            // Get object object information if iconID is not null
-            if(count($rawPoi['iconID']) != 0) 
-                $poi['icon'] = getIcon($db , $rawPoi['iconID']);
-            // Get object object information if objectID is not null
-            if(count($rawPoi['objectID']) != 0) 
-                $poi['object'] = getObject($db, $rawPoi['objectID']);
-            // Get transform object information if transformID is not null
-            if(count($rawPoi['transformID']) != 0)
-                $poi['transform'] = getTransform($db, $rawPoi['transformID']);
-            // Put the poi into the $hotspots array.
-            $hotspots[$i] = $poi;
-            $i++;
+                $poi = array();
+                $poi['id'] = $rawPoi['id'];
+                $poi['imageURL'] = $rawPoi['imageURL'];
+                // Get anchor object information
+                $poi['anchor']['geolocation']['lat'] = changetoFloat($rawPoi['lat']);
+                $poi['anchor']['geolocation']['lon'] = changetoFloat($rawPoi['lon']);
+                // get text object information
+                $poi['text']['title'] = $rawPoi['title'];
+                $poi['text']['description'] = $rawPoi['description'];
+                $poi['text']['footnote'] = $rawPoi['footnote'];
+                //User function getPOiActions() to return an array of actions associated
+                //with the current POI
+                $poi['actions'] = $this->getPoiActions($rawPoi);
+                // Get object object information if objectID is not null
+                if(count($rawPoi['objectID']) != 0) $poi['object'] = $this->getObject($rawPoi['objectID']);
+                // Give only the defaults as these parameters are not used in the webservice.
+                $poi['icon'] = $guws_default_icon;
+                $poi['transform'] = $guws_default_transform;
+                
+                // Get object object information if iconID is not null
+//                if(count($rawPoi['iconID']) != 0) $poi['icon'] = getIcon($rawPoi['iconID']);
+                // Get transform object information if transformID is not null
+//                if(count($rawPoi['transformID']) != 0) $poi['transform'] = getTransform($rawPoi['transformID']);
+                
+                // Put the poi into the $hotspots array.
+                $hotspots[$i] = $poi;
+                $i++;
             }//foreach
         }//if
         return $hotspots;
     }//getHotspots
-    
-    // Put fetched transform related parameters for each POI into an associative
-    // array. The returned values are assigned to $poi[transform].
-    //
-    // Arguments:
-    //   db ; The database connection handler. 
-    //   transformID , integer ; The transform id which is assigned to this POI.
-    //
-    // Returns: associative array or NULL; An array of received transform related
-    // parameters for this POI. Otherwise, return NULL. 
-    // 
-    function getTransform($db , $transformID) {
-    // If no transform object is found, return NULL. 
-    $transform = NULL;
-    // A new table called 'Transform' is created to store transform related
-    // parameters, namely 'rotate','translate' and 'scale'. 
-    // 'transformID' is the transform that is applied to this POI. 
-    // The SQL statement returns transform which has the same id as the
-    // $transformID of this POI. 
-    $sql_transform = $db->prepare('
-        SELECT rel, 
-                angle, 
-                rotate_x,
-                rotate_y,
-                rotate_z,
-                translate_x,
-                translate_y,
-                translate_z,
-                scale
-        FROM Transform
-        WHERE id = :transformID 
-        LIMIT 0,1 '); 
-
-    // Binds the named parameter marker ':transformID' to the specified parameter
-    // value $transformID                
-    $sql_transform->bindParam(':transformID', $transformID, PDO::PARAM_INT);
-    // Use PDO::execute() to execute the prepared statement $sql_transform. 
-    $sql_transform->execute();
-    // Fetch the poi transform. 
-    $rawTransform = $sql_transform->fetch(PDO::FETCH_ASSOC);
-
-    /* Process the $rawTransform result */
-    // if $rawTransform array is not  empty 
-    if ($rawTransform) {
-        // Change the value of 'scale' into decimal value.
-        $transform['scale'] = changetoFloat($rawTransform['scale']);
-        // organize translate field
-        $transform['translate']['x'] =changetoFloat($rawTransform['translate_x']);
-        $transform['translate']['y'] = changetoFloat($rawTransform['translate_y']);
-        $transform['translate']['z'] = changetoFloat($rawTransform['translate_z']);
-        // organize rotate field
-        $transform['rotate']['axis']['x'] = changetoFloat($rawTransform['rotate_x']);
-        $transform['rotate']['axis']['y'] = changetoFloat($rawTransform['rotate_y']);
-        $transform['rotate']['axis']['z'] = changetoFloat($rawTransform['rotate_z']);
-        $transform['rotate']['angle'] = changetoFloat($rawTransform['angle']);
-        $transform['rotate']['rel'] = changetoBool($rawTransform['rel']);
-    }//if 
-
-    return $transform;
-    }//getTransform
     
     // Put fetched object parameters for each POI into an associative array.
     //
@@ -294,14 +237,14 @@ class guws_database{
     //   associative array or NULL ; An array of received object related parameters
     //   for this POI. otherwise, return NULL. 
     // 
-    function getObject($db , $objectID) {
+    private function getObject($objectID) {
     // If no object object is found, return NULL. 
     $object = NULL;
 
     // A new table called 'Object' is created to store object related parameters,
     // namely 'url', 'contentType', 'reducedURL' and 'size'. The SQL statement
     // returns object which has the same id as $objectID stored in this POI. 
-    $sql_object = $db->prepare(
+    $sql_object = $this->db->prepare(
         ' SELECT contentType,
                 url, 
                 reducedURL, 
@@ -327,7 +270,8 @@ class guws_database{
     }
     return $object;
     }//getObject
-    
+
+    // DEPRECATED
     // Put fetched icon dictionary for each POI into an associative array.
     // 
     // Arguments:
@@ -337,26 +281,87 @@ class guws_database{
     // Return:
     //  array ; An associative array of retrieved icon dictionary for this POI.
     //  Otherwise, return NULL. 
-    function getIcon($db, $iconID) {
-    // If no icon object is found, return NULL.
-    $icon = NULL;
+    function getIcon($iconID) {
+        // If no icon object is found, return NULL.
+        $icon = NULL;
 
-    // Run the query to retrieve icon information for this POI.  
-    $sql_icon = $db->prepare( '
-                SELECT url, type
-                FROM Icon
-                WHERE id = :iconID  
-                ' );
-    $sql_icon->bindParam(':iconID', $iconID, PDO::PARAM_INT);
-    $sql_icon->execute();
-    $rawIcon = $sql_icon->fetch(PDO::FETCH_ASSOC);
+        // Run the query to retrieve icon information for this POI.  
+        $sql_icon = $this->db->prepare( '
+                    SELECT url, type
+                    FROM Icon
+                    WHERE id = :iconID  
+                    ' );
+        $sql_icon->bindParam(':iconID', $iconID, PDO::PARAM_INT);
+        $sql_icon->execute();
+        $rawIcon = $sql_icon->fetch(PDO::FETCH_ASSOC);
 
-    // Assign returned values to $icon array. 
-    if($rawIcon){
-        $rawIcon['type'] = changetoInt($rawIcon['type']);
-        $icon = $rawIcon;
-    }    
-    return $icon;
+        // Assign returned values to $icon array. 
+        if($rawIcon){
+            $rawIcon['type'] = changetoInt($rawIcon['type']);
+            $icon = $rawIcon;
+        }    
+        return $icon;
     }//getIcon
+    
+    // DEPRECATED
+    // Put fetched transform related parameters for each POI into an associative
+    // array. The returned values are assigned to $poi[transform].
+    //
+    // Arguments:
+    //   db ; The database connection handler. 
+    //   transformID , integer ; The transform id which is assigned to this POI.
+    //
+    // Returns: associative array or NULL; An array of received transform related
+    // parameters for this POI. Otherwise, return NULL. 
+    // 
+    function getTransform($transformID) {
+        // If no transform object is found, return NULL. 
+        $transform = NULL;
+        // A new table called 'Transform' is created to store transform related
+        // parameters, namely 'rotate','translate' and 'scale'. 
+        // 'transformID' is the transform that is applied to this POI. 
+        // The SQL statement returns transform which has the same id as the
+        // $transformID of this POI. 
+        $sql_transform = $this->db->prepare('
+            SELECT rel, 
+                    angle, 
+                    rotate_x,
+                    rotate_y,
+                    rotate_z,
+                    translate_x,
+                    translate_y,
+                    translate_z,
+                    scale
+            FROM Transform
+            WHERE id = :transformID 
+            LIMIT 0,1 '); 
+
+        // Binds the named parameter marker ':transformID' to the specified parameter
+        // value $transformID                
+        $sql_transform->bindParam(':transformID', $transformID, PDO::PARAM_INT);
+        // Use PDO::execute() to execute the prepared statement $sql_transform. 
+        $sql_transform->execute();
+        // Fetch the poi transform. 
+        $rawTransform = $sql_transform->fetch(PDO::FETCH_ASSOC);
+
+        /* Process the $rawTransform result */
+        // if $rawTransform array is not  empty 
+        if ($rawTransform) {
+            // Change the value of 'scale' into decimal value.
+            $transform['scale'] = changetoFloat($rawTransform['scale']);
+            // organize translate field
+            $transform['translate']['x'] = changetoFloat($rawTransform['translate_x']);
+            $transform['translate']['y'] = changetoFloat($rawTransform['translate_y']);
+            $transform['translate']['z'] = changetoFloat($rawTransform['translate_z']);
+            // organize rotate field
+            $transform['rotate']['axis']['x'] = changetoFloat($rawTransform['rotate_x']);
+            $transform['rotate']['axis']['y'] = changetoFloat($rawTransform['rotate_y']);
+            $transform['rotate']['axis']['z'] = changetoFloat($rawTransform['rotate_z']);
+            $transform['rotate']['angle'] = changetoFloat($rawTransform['angle']);
+            $transform['rotate']['rel'] = changetoBool($rawTransform['rel']);
+        }//if 
+
+        return $transform;
+    }//getTransform
 }
 ?>
