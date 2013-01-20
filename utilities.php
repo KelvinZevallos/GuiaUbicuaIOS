@@ -89,6 +89,5 @@ function remove_werid_characters ($string)
     $string=ereg_replace("Ñ", "N", $n_div);
 
     return $string;
-
 }
 ?>

@@ -47,8 +47,7 @@ class guws_params{
         if(isset($checkboxlist)) {
         // Initialize returned value to be 0 if $checkboxlist is empty. 
             $checkbox_value = 0;
-        // If $checkboxlist is not empty, return the added value of all the numbers
-        // splited by ','.
+        // If $checkboxlist is not empty, return the added value of all the numbers splited by ','.
             if (!empty($checkboxlist)) {
                     if (strstr($checkboxlist , ',')) {
                             $checkbox_array = explode(',' , $checkboxlist);
@@ -75,13 +74,10 @@ class guws_params{
     // customslider ; the value that can be used to construct the right SQL
     // statement. 
     //
-    function getSliderValue ($customslider) {
-
-        // if $customslider exists, return its value. 
-            if(isset($customslider)) return $customslider;
-            else 
-            throw new Exception("custom slider parameter is not passed in GetPOI request.");
-
+    function getSliderValue ($customslider) { 
+        if(isset($customslider)) return $customslider;
+        else 
+        throw new Exception("custom slider parameter is not passed in GetPOI request.");
     }//getSliderValue
     
     // Prepare radiolist value which will be used in SQL statement. In this
@@ -94,30 +90,19 @@ class guws_params{
     // Returns:
     // radio_value ; the value that can be used to construct the right SQL
     // statement. 
-    function getRadioValue ($radiolist) {
-    // if $radiolist exists, prepare radio_value. 	
-    if(isset($radiolist)) {
-
-        $radio_value = '';
-            // if $radiolist == 1, return $radio_value ="sale"; 
-            // if $radiolist == 2, return $radio_value ="rent";
+    function getRadioValue ($radiolist) {	
+        if(isset($radiolist)) {
+            $radio_value = '';
             switch ($radiolist) {
-            case '1':
-                    $radio_value = "sale" ;
-                    break;
-            case '2': 
-                    $radio_value = "rent" ;
-                    break;		
-            default:
-                    throw new Exception("invalid radiolist value:" . $radiolist);
-            } //switch
-
+                case '1': $radio_value = "sale" ; break;
+                case '2': $radio_value = "rent" ; break;		
+                default: throw new Exception("invalid radiolist value:" . $radiolist);
+            }
             return $radio_value;
-            }//if
-            else {
+        }
+        else {
             throw new Exception("radiolist parameter is not passed in GetPOI request.");
-            }//else
-
+        }
     }// getRadioValue
     
     // Prepare the search value which will be used in SQL statement. 
@@ -128,27 +113,20 @@ class guws_params{
     //   searchbox_value ; If searchbox parameter has an empty string, return a
     //   string which is  a combination of numbers, letters and white spaces.
     //   Otherwise, return the value of searchbox parameter. 
-
     function getSearchValue ($searchbox) {
-
-            // if $searchbox exists, prepare search value. 
-            if (isset($searchbox)) {
-
-        // initiate searchbox value to be any string that consists of numbers,
-        // letters and spaces. 
+        // if $searchbox exists, prepare search value. 
+        if (isset($searchbox)) {
+            // initiate searchbox value to be any string that consists of numbers, letters and spaces. 
             $searchbox_value = '[0-9a-zA-Z\s]*';
-
             // if $searchbox is not an empty string, return the $searchbox value. 
             if ( !empty( $searchbox ) ) {
                 $searchbox_value = remove_werid_characters($searchbox);
             }
-
             return $searchbox_value;
-            } //if
-            else { // If $searchbox does not exist, throw an exception. 
-                    throw new Exception("searchbox parameter is not passed in GetPOI request.");
-            }//else
-
+        }
+        else { // If $searchbox does not exist, throw an exception. 
+            throw new Exception("searchbox parameter is not passed in GetPOI request.");
+        }
     }// getSearchValue
 }
 ?>

@@ -4,11 +4,14 @@
 // Email: xuan@layar.com
 // Website: http://layar.com
 
+// Modified by: Kelvin Zevallos
+//              kelvin.zevallos.o@gmail.com 
+
 /*** Include some external files ***/
 
 // Include database credentials. Please customize these fields with your own
 // database configuration.
-define('GUWS_INTERNAL',true);
+define('GUWS_INTERNAL', true);
 
 require_once('defines.php');
 require_once('config.inc.php');
@@ -30,10 +33,8 @@ if ( isset( $_GET['RADIOLIST'] ) )     { $keys[] = 'RADIOLIST'; }
 $requestParams = array(); 
 // Call funtion getRequestParams()  
 $requestParams = getRequestParams($keys);
-/* Connect to MySQL server. We use PDO which is a PHP extension to formalise database connection.
-	 For more information regarding PDO, please see http://php.net/manual/en/book.pdo.php. 
- */	
-// Connect to predefined MySQl database.  
+
+// Create Database connection object.  
 $db = new guws_database(); 
 	
 /* Construct the response into an associative array.*/
@@ -45,7 +46,7 @@ $response = array();
 $response['layer'] = $requestParams['layerName'];
 	
 // Use Gethotspots() function to retrieve POIs with in the search range.  
-$response['hotspots'] = $db->getHotspots($db, $requestParams);
+$response['hotspots'] = $db->getHotspots($requestParams);
 
 // if there is no POI found, return a custom error message.
 if (!$response['hotspots'] ) {

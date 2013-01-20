@@ -44,15 +44,9 @@ class guws_database{
         // the POI($poiID).
         $sql_actions = $this->db->prepare(' 
             SELECT label, 
-                    uri, 
-                    contentType,
-                    activityType,
-                    autoTriggerRange,
-                    autoTriggerOnly,
-                    params
+                    uri
             FROM POIAction
-            WHERE poiID = :id '); 
-
+            WHERE poiID = :id ');
         // Binds the named parameter marker ':id' to the specified parameter value
         // '$poiID.                 
         $sql_actions->bindParam(':id', $poi['id'], PDO::PARAM_STR);
@@ -67,12 +61,12 @@ class guws_database{
         // if $actions array is not empty. 
         if ($actions) {
             // Put each action information into $actionArray array.
-            foreach ($actions as $action) { 
-            // Change 'activityType' to Integer.
-            $action['activityType'] = changetoInt($action['activityType']);
-            $action['autoTriggerRange'] = changetoInt($action['autoTriggerRange']);
-            $action['autoTriggerOnly'] = changetoBool($action['autoTriggerOnly']);
-            $action['params'] = changetoArray($action['params'] , ',');
+            // For now, actions are just links to webpages.
+            foreach ($actions as $action) {
+            $action['activityType'] = 1; //default
+            $action['autoTriggerRange'] = 0; //default
+            $action['autoTriggerOnly'] = false; //default
+            $action['params'] = array(); //default
             // Assign each action to $actionArray array. 
             $actionArray[$count] = $action;
             $count++; 
@@ -85,14 +79,13 @@ class guws_database{
     // assigned to $reponse['hotspots'].
     //
     // Arguments:
-    //   db ; The handler of the database.
     //   value , array ; An array which contains all the needed parameters
     //   retrieved from GetPOI request. 
     //
     // Returns:
     //   array ; An array of received POIs.
     //
-    public function getHotspots( $db, $value ) {
+    public function getHotspots($value ) {
         // Define an empty $hotspots array.
         $hotspots = array();
         /* Create a SQL query to retrieve POIs which meet the criterion of filter settings returned from GetPOI request. 
@@ -129,11 +122,8 @@ class guws_database{
                                 ) * 180 / pi()
                                 )* 60 * 1.1515 * 1.609344 * 1000
                                 ) as distance,
-                                iconID,
                                 objectID,
-                                transformID
                         FROM POI_RealEstate
-                        WHERE poiType = "geo"
                         ';
 
         if ( isset( $value['SEARCHBOX'] ) ) { $sql_string .= ' AND title REGEXP :search'; }
@@ -160,7 +150,7 @@ class guws_database{
         $sql_string .= ' HAVING distance < :radius 
                         ORDER BY distance ASC';
 
-        $sql = $db->prepare( $sql_string );
+        $sql = $this->db->prepare( $sql_string );
 
         // PDOStatement::bindParam() binds the named parameter markers to the
         // specified parameter values. 
@@ -183,10 +173,8 @@ class guws_database{
         
         // Iterator for the response array.
         $i = 0; 
-        // Use fetchAll to return an array containing all of the remaining rows in
-        // the result set.
-        // Use PDO::FETCH_ASSOC to fetch $sql query results and return each row as an
-        // array indexed by column name.
+        // Use fetchAll to return an array containing all of the remaining rows in the result set.
+        // Use PDO::FETCH_ASSOC to fetch $sql query results and return each row as an array indexed by column name.
         $rawPois = $sql->fetchAll(PDO::FETCH_ASSOC);
 
         /* Process the $pois result */
@@ -210,15 +198,10 @@ class guws_database{
                 $poi['actions'] = $this->getPoiActions($rawPoi);
                 // Get object object information if objectID is not null
                 if(count($rawPoi['objectID']) != 0) $poi['object'] = $this->getObject($rawPoi['objectID']);
+                
                 // Give only the defaults as these parameters are not used in the webservice.
                 $poi['icon'] = $guws_default_icon;
-                $poi['transform'] = $guws_default_transform;
-                
-                // Get object object information if iconID is not null
-//                if(count($rawPoi['iconID']) != 0) $poi['icon'] = getIcon($rawPoi['iconID']);
-                // Get transform object information if transformID is not null
-//                if(count($rawPoi['transformID']) != 0) $poi['transform'] = getTransform($rawPoi['transformID']);
-                
+                $poi['transform'] = $guws_default_transform;     
                 // Put the poi into the $hotspots array.
                 $hotspots[$i] = $poi;
                 $i++;
@@ -238,130 +221,37 @@ class guws_database{
     //   for this POI. otherwise, return NULL. 
     // 
     private function getObject($objectID) {
-    // If no object object is found, return NULL. 
-    $object = NULL;
+        // If no object object is found, return NULL. 
+        $object = NULL;
 
-    // A new table called 'Object' is created to store object related parameters,
-    // namely 'url', 'contentType', 'reducedURL' and 'size'. The SQL statement
-    // returns object which has the same id as $objectID stored in this POI. 
-    $sql_object = $this->db->prepare(
-        ' SELECT contentType,
-                url, 
-                reducedURL, 
-                size 
-        FROM Object
-        WHERE id = :objectID 
-        LIMIT 0,1 '); 
-
-    // Binds the named parameter marker ':objectID' to the specified parameter
-    // value $objectID.                 
-    $sql_object->bindParam(':objectID', $objectID, PDO::PARAM_INT);
-    // Use PDO::execute() to execute the prepared statement $sql_object. 
-    $sql_object->execute();
-    // Fetch the poi object. 
-    $rawObject = $sql_object->fetch(PDO::FETCH_ASSOC);
-
-    /* Process the $rawObject result */
-    // if $rawObject array is not empty. 
-    if ($rawObject) {
-        // Change 'size' type to float. 
-        $rawObject['size'] = changetoFloat($rawObject['size']);
-        $object = $rawObject;
-    }
-    return $object;
-    }//getObject
-
-    // DEPRECATED
-    // Put fetched icon dictionary for each POI into an associative array.
-    // 
-    // Arguments:
-    //  db ; The database connection handler.
-    //  iconID, integer ; The iconID value  which is stored in this POI.
-    //
-    // Return:
-    //  array ; An associative array of retrieved icon dictionary for this POI.
-    //  Otherwise, return NULL. 
-    function getIcon($iconID) {
-        // If no icon object is found, return NULL.
-        $icon = NULL;
-
-        // Run the query to retrieve icon information for this POI.  
-        $sql_icon = $this->db->prepare( '
-                    SELECT url, type
-                    FROM Icon
-                    WHERE id = :iconID  
-                    ' );
-        $sql_icon->bindParam(':iconID', $iconID, PDO::PARAM_INT);
-        $sql_icon->execute();
-        $rawIcon = $sql_icon->fetch(PDO::FETCH_ASSOC);
-
-        // Assign returned values to $icon array. 
-        if($rawIcon){
-            $rawIcon['type'] = changetoInt($rawIcon['type']);
-            $icon = $rawIcon;
-        }    
-        return $icon;
-    }//getIcon
-    
-    // DEPRECATED
-    // Put fetched transform related parameters for each POI into an associative
-    // array. The returned values are assigned to $poi[transform].
-    //
-    // Arguments:
-    //   db ; The database connection handler. 
-    //   transformID , integer ; The transform id which is assigned to this POI.
-    //
-    // Returns: associative array or NULL; An array of received transform related
-    // parameters for this POI. Otherwise, return NULL. 
-    // 
-    function getTransform($transformID) {
-        // If no transform object is found, return NULL. 
-        $transform = NULL;
-        // A new table called 'Transform' is created to store transform related
-        // parameters, namely 'rotate','translate' and 'scale'. 
-        // 'transformID' is the transform that is applied to this POI. 
-        // The SQL statement returns transform which has the same id as the
-        // $transformID of this POI. 
-        $sql_transform = $this->db->prepare('
-            SELECT rel, 
-                    angle, 
-                    rotate_x,
-                    rotate_y,
-                    rotate_z,
-                    translate_x,
-                    translate_y,
-                    translate_z,
-                    scale
-            FROM Transform
-            WHERE id = :transformID 
+        // A new table called 'Object' is created to store object related parameters,
+        // namely 'url', 'contentType', 'reducedURL' and 'size'. The SQL statement
+        // returns object which has the same id as $objectID stored in this POI. 
+        $sql_object = $this->db->prepare(
+            ' SELECT contentType,
+                    url, 
+                    reducedURL, 
+                    size 
+            FROM Object
+            WHERE id = :objectID 
             LIMIT 0,1 '); 
 
-        // Binds the named parameter marker ':transformID' to the specified parameter
-        // value $transformID                
-        $sql_transform->bindParam(':transformID', $transformID, PDO::PARAM_INT);
-        // Use PDO::execute() to execute the prepared statement $sql_transform. 
-        $sql_transform->execute();
-        // Fetch the poi transform. 
-        $rawTransform = $sql_transform->fetch(PDO::FETCH_ASSOC);
+        // Binds the named parameter marker ':objectID' to the specified parameter
+        // value $objectID.                 
+        $sql_object->bindParam(':objectID', $objectID, PDO::PARAM_INT);
+        // Use PDO::execute() to execute the prepared statement $sql_object. 
+        $sql_object->execute();
+        // Fetch the poi object. 
+        $rawObject = $sql_object->fetch(PDO::FETCH_ASSOC);
 
-        /* Process the $rawTransform result */
-        // if $rawTransform array is not  empty 
-        if ($rawTransform) {
-            // Change the value of 'scale' into decimal value.
-            $transform['scale'] = changetoFloat($rawTransform['scale']);
-            // organize translate field
-            $transform['translate']['x'] = changetoFloat($rawTransform['translate_x']);
-            $transform['translate']['y'] = changetoFloat($rawTransform['translate_y']);
-            $transform['translate']['z'] = changetoFloat($rawTransform['translate_z']);
-            // organize rotate field
-            $transform['rotate']['axis']['x'] = changetoFloat($rawTransform['rotate_x']);
-            $transform['rotate']['axis']['y'] = changetoFloat($rawTransform['rotate_y']);
-            $transform['rotate']['axis']['z'] = changetoFloat($rawTransform['rotate_z']);
-            $transform['rotate']['angle'] = changetoFloat($rawTransform['angle']);
-            $transform['rotate']['rel'] = changetoBool($rawTransform['rel']);
-        }//if 
-
-        return $transform;
-    }//getTransform
+        /* Process the $rawObject result */
+        // if $rawObject array is not empty. 
+        if ($rawObject) {
+            // Change 'size' type to float. 
+            $rawObject['size'] = changetoFloat($rawObject['size']);
+            $object = $rawObject;
+        }
+        return $object;
+    }//getObject
 }
 ?>
