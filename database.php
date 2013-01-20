@@ -15,7 +15,7 @@ class guws_database{
             $this->db->setAttribute(PDO::ATTR_ERRMODE , PDO::ERRMODE_EXCEPTION);
         }// try
         catch(PDOException $e) {
-        error_log('message:' . $e->getMessage());
+            echo 'ERROR: ' . $e->getMessage();
         }// catch
     }
     
@@ -85,7 +85,7 @@ class guws_database{
     // Returns:
     //   array ; An array of received POIs.
     //
-    public function getHotspots($value ) {
+    public function getHotspots($value) {
         // Define an empty $hotspots array.
         $hotspots = array();
         /* Create a SQL query to retrieve POIs which meet the criterion of filter settings returned from GetPOI request. 
@@ -161,8 +161,8 @@ class guws_database{
 
         // Custom filter settings parameters. The four Get functions can be
         // customized.
-        if ( isset( $value['SEARCHBOX'] ) )     { $sql->bindParam(':search', getSearchValue($value['SEARCHBOX']), PDO::PARAM_STR); }
-        if ( isset( $value['CHECKBOX'] ) )      { $sql->bindParam(':checkbox', getCheckboxValue($value['CHECKBOXLIST']), PDO::PARAM_INT); }
+//        if ( isset( $value['SEARCHBOX'] ) )     { $sql->bindParam(':search', getSearchValue($value['SEARCHBOX']), PDO::PARAM_STR); }
+//        if ( isset( $value['CHECKBOX'] ) )      { $sql->bindParam(':checkbox', getCheckboxValue($value['CHECKBOXLIST']), PDO::PARAM_INT); }
         //  if ( isset( $value['CUSTOM_SLIDER'] ) ) { $sql->bindParam(':slider', getSliderValue($value['CUSTOM_SLIDER']), PDO::PARAM_INT); }
         //  if ( isset( $value['RADIOLIST'] ) )    { $sql->bindParam(':radiolist', getRadioValue($value['RADIOLIST']), PDO::PARAM_STR); }
 

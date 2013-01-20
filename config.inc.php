@@ -29,14 +29,8 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /* Pre-define connection to the MySQL database, please specify these fields based on your database configuration.*/
-  define('DBHOST', 'avatar.inf.pucp.edu.pe');
-  define('DBDATA', 'test');
-  define('DBUSER', 'avatar');
-  define('DBPASS', 'trivista');
-  
-  $table_prefix = 'guws_';
-//  define('DBHOST', 'mysql14.000webhost.com');
-//  define('DBDATA', 'a9168001_test');
-//  define('DBUSER', 'a9168001_test');
-//  define('DBPASS', '');
+  define('DBHOST', 'localhost');
+  define('DBDATA', ''); //Schema
+  define('DBUSER', 'gubicua');
+  define('DBPASS', 'gubicua2012');
 ?>
