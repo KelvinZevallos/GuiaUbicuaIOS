@@ -43,9 +43,9 @@ class guws_database{
         // The SQL statement returns actions which have the same poiID as the id of
         // the POI($poiID).
         $sql_actions = $this->db->prepare(' 
-            SELECT label, 
-                    uri
-            FROM POIAction
+            SELECT LABEL, 
+                    URL,
+            FROM ACCION_LAYAR
             WHERE poiID = :id ');
         // Binds the named parameter marker ':id' to the specified parameter value
         // '$poiID.                 
@@ -63,13 +63,13 @@ class guws_database{
             // Put each action information into $actionArray array.
             // For now, actions are just links to webpages.
             foreach ($actions as $action) {
-            $action['activityType'] = 1; //default
-            $action['autoTriggerRange'] = 0; //default
-            $action['autoTriggerOnly'] = false; //default
-            $action['params'] = array(); //default
-            // Assign each action to $actionArray array. 
-            $actionArray[$count] = $action;
-            $count++; 
+                $action['activityType'] = 1; //default
+                $action['autoTriggerRange'] = 0; //default
+                $action['autoTriggerOnly'] = false; //default
+                $action['params'] = array(); //default
+                // Assign each action to $actionArray array. 
+                $actionArray[$count] = $action;
+                $count++; 
             }// foreach
         }//if
         return $actionArray;
@@ -109,24 +109,23 @@ class guws_database{
         // which real values will be substituted when the statement is executed.
         // $sql is returned as a PDO statement object. 
 
-        $sql_string = 'SELECT id, 
-                                imageURL, 
-                                title, 
-                                description, 
-                                footnote, 
-                                lat, 
-                                lon,
-                                (((acos(sin((:lat1 * pi() / 180)) * sin((lat * pi() / 180)) +
-                                cos((:lat2 * pi() / 180)) * cos((lat * pi() / 180)) * 
-                                cos((:long  - lon) * pi() / 180))
+        $sql_string = 'SELECT ID_PUNTO, 
+                                URL_IMGS, 
+                                NOMBRE, 
+                                DESCRIPCION,
+                                WEB,
+                                LAT, 
+                                LONG,
+                                (((acos(sin((:lat1 * pi() / 180)) * sin((LAT * pi() / 180)) +
+                                cos((:lat2 * pi() / 180)) * cos((LAT * pi() / 180)) * 
+                                cos((:long  - LONG) * pi() / 180))
                                 ) * 180 / pi()
                                 )* 60 * 1.1515 * 1.609344 * 1000
                                 ) as distance,
-                                objectID,
-                        FROM POI_RealEstate
+                        FROM PUNTO
                         ';
 
-        if ( isset( $value['SEARCHBOX'] ) ) { $sql_string .= ' AND title REGEXP :search'; }
+        if ( isset( $value['SEARCHBOX'] ) ) { $sql_string .= ' AND NOMBRE REGEXP :search'; }
 
         if ( isset( $value['CHECKBOXLIST'] ) and ($value['CHECKBOXLIST'] != '') ) {
             $sql_string .= ' AND (';
@@ -142,7 +141,6 @@ class guws_database{
             } else {
                 $sql_string .= 'filter_value = :checkbox)';
             }
-        //      $sql_string .= ' AND ((filter_value & :checkbox) != 0)'; 
         }
         //  if ( isset( $value['CUSTOM_SLIDER'] ) ) { $sql_string .= ' AND Custom_Slider <= :slider';  }
         //  if ( isset( $value['RADIOLIST'] ) )    { $sql_string .= ' AND radio_list = :radiolist'; }
@@ -184,20 +182,34 @@ class guws_database{
             // Put each POI information into $hotspots array.
             foreach ( $rawPois as $rawPoi ) {
                 $poi = array();
-                $poi['id'] = $rawPoi['id'];
-                $poi['imageURL'] = $rawPoi['imageURL'];
+                $poi['id'] = $rawPoi['ID_PUNTO'];
+                $poi['imageURL'] = $rawPoi['URL_IMGS'];
                 // Get anchor object information
-                $poi['anchor']['geolocation']['lat'] = changetoFloat($rawPoi['lat']);
-                $poi['anchor']['geolocation']['lon'] = changetoFloat($rawPoi['lon']);
+                $poi['anchor']['geolocation']['lat'] = changetoFloat($rawPoi['LAT']);
+                $poi['anchor']['geolocation']['lon'] = changetoFloat($rawPoi['LONG']);
                 // get text object information
-                $poi['text']['title'] = $rawPoi['title'];
-                $poi['text']['description'] = $rawPoi['description'];
-                $poi['text']['footnote'] = $rawPoi['footnote'];
-                //User function getPOiActions() to return an array of actions associated
-                //with the current POI
-                $poi['actions'] = $this->getPoiActions($rawPoi);
-                // Get object object information if objectID is not null
-                if(count($rawPoi['objectID']) != 0) $poi['object'] = $this->getObject($rawPoi['objectID']);
+                $poi['text']['title'] = $rawPoi['NOMBRE'];
+                $poi['text']['description'] = $rawPoi['DESCRIPCION'];
+                $poi['text']['footnote'] = "Grupo AVATAR-PUCP";
+                //User function getPOiActions() to return an array of actions associated with the current POI
+                $poi['actions'] = array();
+                if ( $poi['WEB'] != "" ){
+                    $poi['actions'][] = array(
+                        'label' => "Sitio Web",
+                        'uri' => $poi['WEB'],
+                        'activityType' => 1,
+                        'autoTriggerRange' => 0,
+                        'autoTriggerOnly' => false,
+                        'params' => array(),
+                    );
+                }
+                // Get object information from the webservice
+                $poi['object'] = array(
+                    'contentType' => "image/vnd.layar.generic",
+                    'url' => "",
+                    'size' => 23,
+                    'reducedURL' => "", 
+                );
                 
                 // Give only the defaults as these parameters are not used in the webservice.
                 $poi['icon'] = $guws_default_icon;
@@ -209,49 +221,5 @@ class guws_database{
         }//if
         return $hotspots;
     }//getHotspots
-    
-    // Put fetched object parameters for each POI into an associative array.
-    //
-    // Arguments:
-    //   db ; The database connection handler. 
-    //   objectID, integer ; The object id assigned to this POI.
-    //
-    // Returns:
-    //   associative array or NULL ; An array of received object related parameters
-    //   for this POI. otherwise, return NULL. 
-    // 
-    private function getObject($objectID) {
-        // If no object object is found, return NULL. 
-        $object = NULL;
-
-        // A new table called 'Object' is created to store object related parameters,
-        // namely 'url', 'contentType', 'reducedURL' and 'size'. The SQL statement
-        // returns object which has the same id as $objectID stored in this POI. 
-        $sql_object = $this->db->prepare(
-            ' SELECT contentType,
-                    url, 
-                    reducedURL, 
-                    size 
-            FROM Object
-            WHERE id = :objectID 
-            LIMIT 0,1 '); 
-
-        // Binds the named parameter marker ':objectID' to the specified parameter
-        // value $objectID.                 
-        $sql_object->bindParam(':objectID', $objectID, PDO::PARAM_INT);
-        // Use PDO::execute() to execute the prepared statement $sql_object. 
-        $sql_object->execute();
-        // Fetch the poi object. 
-        $rawObject = $sql_object->fetch(PDO::FETCH_ASSOC);
-
-        /* Process the $rawObject result */
-        // if $rawObject array is not empty. 
-        if ($rawObject) {
-            // Change 'size' type to float. 
-            $rawObject['size'] = changetoFloat($rawObject['size']);
-            $object = $rawObject;
-        }
-        return $object;
-    }//getObject
 }
 ?>

@@ -30,7 +30,7 @@
 
 /* Pre-define connection to the MySQL database, please specify these fields based on your database configuration.*/
   define('DBHOST', 'localhost');
-  define('DBDATA', ''); //Schema
-  define('DBUSER', 'gubicua');
-  define('DBPASS', 'gubicua2012');
+  define('DBDATA', 'UBICUA'); //Schema
+  define('DBUSER', 'root');
+  define('DBPASS', 'adminadmin');
 ?>
