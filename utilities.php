@@ -1,5 +1,5 @@
 <?php
-if (defined("GUWS_INTERNAL") || die("must run from webservice"));
+if (defined("GUWS_INTERNAL") || die("Must run from webservice"));
 
 // Change a string value to float
 //

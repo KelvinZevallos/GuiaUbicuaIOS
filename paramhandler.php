@@ -1,5 +1,5 @@
 <?php
-if (defined("GUWS_INTERNAL") || die("must run from webservice"));
+if (defined("GUWS_INTERNAL") || die("Must run from webservice"));
 
 class guws_params{
     private $params;
